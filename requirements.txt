@@ -1,0 +1,8 @@
+black
+gradio
+mediapipe
+numpy
+opencv-python
+pytest
+ruff
+scipy
