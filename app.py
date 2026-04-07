@@ -1,8 +1,14 @@
 import gradio as gr
+import numpy as np
+from src.pose_detection import process_frame
+
+STREAM_EVERY_SECONDS = 0.2
 
 
-def passthrough(frame):
-    return frame
+def passthrough(frame: np.ndarray) -> np.ndarray:
+    """Accept an RGB image as a NumPy array with shape (H, W, 3) and return the same shape."""
+    _, annotated_frame = process_frame(frame)
+    return annotated_frame
 
 
 def build_app() -> gr.Blocks:
@@ -17,7 +23,7 @@ def build_app() -> gr.Blocks:
             inputs=input_img,
             outputs=output_img,
             time_limit=15,
-            stream_every=0.1,
+            stream_every=STREAM_EVERY_SECONDS,
             concurrency_limit=30,
         )
 
