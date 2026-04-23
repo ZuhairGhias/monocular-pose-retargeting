@@ -34,6 +34,7 @@ class SourceBone:
 @dataclass(frozen=True)
 class SourceSkeletonFrame:
     joints: dict[SourceJoint, np.ndarray]
+    joint_confidences: dict[SourceJoint, float]
     bone_directions: dict[SourceBone, np.ndarray]
 
 
@@ -58,6 +59,12 @@ SOURCE_BONES = (
 
 def landmark_to_position(landmark: NormalizedLandmark) -> np.ndarray:
     return np.array([landmark.x, landmark.y, landmark.z], dtype=np.float32)
+
+
+def landmark_confidence(landmark: NormalizedLandmark) -> float:
+    visibility = landmark.visibility if landmark.visibility is not None else 1.0
+    presence = landmark.presence if landmark.presence is not None else 1.0
+    return float(min(visibility, presence))
 
 
 def midpoint(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -123,8 +130,48 @@ def estimate_bone_directions(joints: dict[SourceJoint, np.ndarray]) -> dict[Sour
     return directions
 
 
+def estimate_joint_confidences(pose_result: PoseLandmarkerResult) -> dict[SourceJoint, float]:
+    if not pose_result.pose_landmarks:
+        return {}
+
+    landmarks = pose_result.pose_landmarks[0]
+
+    left_shoulder = landmark_confidence(landmarks[11])
+    right_shoulder = landmark_confidence(landmarks[12])
+    left_hip = landmark_confidence(landmarks[23])
+    right_hip = landmark_confidence(landmarks[24])
+
+    pelvis = min(left_hip, right_hip)
+    neck = min(left_shoulder, right_shoulder)
+    spine = min(pelvis, neck)
+
+    return {
+        SourceJoint.PELVIS: pelvis,
+        SourceJoint.SPINE: spine,
+        SourceJoint.NECK: neck,
+        SourceJoint.HEAD: landmark_confidence(landmarks[0]),
+        SourceJoint.LEFT_SHOULDER: left_shoulder,
+        SourceJoint.LEFT_ELBOW: landmark_confidence(landmarks[13]),
+        SourceJoint.LEFT_WRIST: landmark_confidence(landmarks[15]),
+        SourceJoint.RIGHT_SHOULDER: right_shoulder,
+        SourceJoint.RIGHT_ELBOW: landmark_confidence(landmarks[14]),
+        SourceJoint.RIGHT_WRIST: landmark_confidence(landmarks[16]),
+        SourceJoint.LEFT_HIP: left_hip,
+        SourceJoint.LEFT_KNEE: landmark_confidence(landmarks[25]),
+        SourceJoint.LEFT_ANKLE: landmark_confidence(landmarks[27]),
+        SourceJoint.RIGHT_HIP: right_hip,
+        SourceJoint.RIGHT_KNEE: landmark_confidence(landmarks[26]),
+        SourceJoint.RIGHT_ANKLE: landmark_confidence(landmarks[28]),
+    }
+
+
 def estimate_source_skeleton(pose_result: PoseLandmarkerResult) -> SourceSkeletonFrame:
     joints = estimate_source_joints(pose_result)
+    joint_confidences = estimate_joint_confidences(pose_result)
     bone_directions = estimate_bone_directions(joints)
 
-    return SourceSkeletonFrame(joints=joints, bone_directions=bone_directions)
+    return SourceSkeletonFrame(
+        joints=joints,
+        joint_confidences=joint_confidences,
+        bone_directions=bone_directions,
+    )

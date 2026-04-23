@@ -7,9 +7,14 @@ from mediapipe.tasks.python import vision
 from mediapipe.tasks.python.vision import drawing_styles, PoseLandmarkerResult
 from mediapipe.tasks.python.vision import drawing_utils
 
+from src.source_skeleton import SourceSkeletonFrame
+from src.source_skeleton import estimate_source_skeleton
+
 from typing import NamedTuple
 class PoseFrameResult(NamedTuple):
     landmarks: PoseLandmarkerResult
+    source_skeleton: SourceSkeletonFrame
+    processed_frame: np.ndarray
     annotated_frame: np.ndarray
 
 MODEL_PATH = "./models/pose_landmarker_lite.task"
@@ -48,18 +53,18 @@ def draw_pose_landmarks(frame: np.ndarray, pose_landmarker_result) -> np.ndarray
     return annotated_frame
 
 
-def draw_debug_text(frame: np.ndarray, text: str) -> np.ndarray:
-    cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
-    return frame
-
-
-def process_frame(frame: np.ndarray):
+def process_frame(frame: np.ndarray) -> PoseFrameResult:
     resized_frame = resize_frame(frame)
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=resized_frame)
-    pose_landmarker_result = _landmarker.detect_for_video(mp_image, timestamp_ms=time.time_ns() // 1000)
+    pose_landmarker_result = _landmarker.detect_for_video(
+        mp_image,
+        timestamp_ms=time.time_ns() // 1_000_000,
+    )
+    source_skeleton = estimate_source_skeleton(pose_landmarker_result)
     annotated_frame = draw_pose_landmarks(resized_frame, pose_landmarker_result)
-    annotated_frame = draw_debug_text(annotated_frame, f"shape={resized_frame.shape}")
     return PoseFrameResult(
         landmarks=pose_landmarker_result,
+        source_skeleton=source_skeleton,
+        processed_frame=resized_frame,
         annotated_frame=annotated_frame,
     )
