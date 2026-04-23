@@ -7,8 +7,8 @@ STREAM_EVERY_SECONDS = 0.2
 
 def passthrough(frame: np.ndarray) -> np.ndarray:
     """Accept an RGB image as a NumPy array with shape (H, W, 3) and return the same shape."""
-    _, annotated_frame = process_frame(frame)
-    return annotated_frame
+    result = process_frame(frame)
+    return result.annotated_frame
 
 
 def build_app() -> gr.Blocks:

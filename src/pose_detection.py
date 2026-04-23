@@ -4,8 +4,13 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from mediapipe.tasks.python import vision
-from mediapipe.tasks.python.vision import drawing_styles
+from mediapipe.tasks.python.vision import drawing_styles, PoseLandmarkerResult
 from mediapipe.tasks.python.vision import drawing_utils
+
+from typing import NamedTuple
+class PoseFrameResult(NamedTuple):
+    landmarks: PoseLandmarkerResult
+    annotated_frame: np.ndarray
 
 MODEL_PATH = "./models/pose_landmarker_lite.task"
 DOWNSAMPLE_SCALE = 0.25
@@ -54,4 +59,7 @@ def process_frame(frame: np.ndarray):
     pose_landmarker_result = _landmarker.detect_for_video(mp_image, timestamp_ms=time.time_ns() // 1000)
     annotated_frame = draw_pose_landmarks(resized_frame, pose_landmarker_result)
     annotated_frame = draw_debug_text(annotated_frame, f"shape={resized_frame.shape}")
-    return pose_landmarker_result, annotated_frame
+    return PoseFrameResult(
+        landmarks=pose_landmarker_result,
+        annotated_frame=annotated_frame,
+    )
