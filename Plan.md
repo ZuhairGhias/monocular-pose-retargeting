@@ -1,210 +1,163 @@
-Yes — here’s a repo-init plan you can hand to an agent.
-
-# Project bootstrap brief
-
-Create a Python-first repository for a **Gradio-based monocular pose tracking demo**.
+# Motion Retargeting Project Plan
 
 ## Goal
 
-Build a web app that:
+Build a Python-first, server-driven Gradio app that takes monocular camera pose landmarks, converts them into a stable intermediate skeleton, and retargets that motion onto a rigged Mixamo avatar.
 
-* captures webcam input in Gradio,
-* sends frames to a Python backend loop,
-* runs pose landmark detection,
-* draws keypoints and limbs on the returned frame,
-* is structured so we can later add:
+## Scope
 
-  * smoothing / anti-jitter logic,
-  * retargeting,
-  * optional Viser-based avatar visualization.
+The project does not attempt full source-mesh reconstruction or STaR-style learned retargeting. The baseline focuses on:
 
-## Initial milestone
+- pose landmark detection
+- canonical source skeleton fitting
+- skeleton-to-skeleton retargeting
+- driving a Mixamo rig
+- temporal stabilization and basic contact constraints
 
-The first working version should:
+## Current App Direction
 
-* launch locally with one command,
-* open a Gradio web page,
-* accept webcam input,
-* process frames on the server,
-* return an annotated frame with pose keypoints and limb connections,
-* show basic status info like FPS or processing time.
+The first usable application should:
 
-## Tech stack
+- launch locally with `python app.py`
+- open a Gradio web page
+- accept webcam input
+- process frames on the Python backend
+- run MediaPipe Pose Landmarker
+- return an annotated frame with pose landmarks and limb connections
+- keep the UI simple and server-driven
 
-* latest Python
-* Gradio Blocks
-* OpenCV
-* MediaPipe Pose Landmarker (Python Tasks API)
-* NumPy
-* SciPy
-* Ruff
-* Black
-* Pytest
+Gradio remains the main UI shell. Do not build a custom frontend unless the project scope changes.
 
-## Repo requirements
+## Pipeline
 
-Set up the repository with this structure:
+### 1. Landmark Capture
+
+- Capture frames from webcam or uploaded video
+- Run pose landmark detection
+- Store per-frame landmark positions and confidence values
+- Render raw landmarks for debugging
+
+### 2. Canonical Source Skeleton
+
+- Define a fixed source skeleton hierarchy:
+  - pelvis
+  - spine
+  - neck
+  - head
+  - shoulders
+  - elbows
+  - wrists
+  - hips
+  - knees
+  - ankles
+- Estimate a stable root transform from hips and torso
+- Use fixed bone lengths rather than frame-by-frame landmark distances
+
+### 3. Joint Rotation Estimation
+
+- Compute bone direction vectors from landmarks for each frame
+- Convert direction vectors into joint rotations relative to rest pose
+- Apply confidence checks and clamp invalid rotations
+- Smooth rotations over time to reduce jitter
+
+### 4. Mixamo Retargeting
+
+- Import one Mixamo character and inspect its joint hierarchy
+- Create a mapping from source skeleton joints to Mixamo joints
+- Drive the Mixamo rig using source joint rotations
+- Keep target skeleton bone lengths fixed
+
+### 5. IK and Constraints
+
+- Add IK or simple constraints for arms, legs, head orientation, and pelvis/root motion
+- Enforce joint angle limits
+- Add basic foot planting and anti-sliding heuristics
+
+### 6. Debugging and Visualization
+
+- Visualize raw landmarks
+- Visualize the canonical source skeleton
+- Visualize the retargeted target skeleton
+- Visualize final Mixamo avatar output
+- Add side-by-side debugging views for each pipeline stage
+
+## Milestones
+
+### Milestone 1: Pose Input
+
+- Webcam/video input works
+- Pose landmarks are detected and rendered consistently
+- Basic performance is acceptable after downsampling or other simple optimizations
+
+### Milestone 2: Source Skeleton
+
+- Canonical source skeleton is defined
+- Stable root and bone directions are computed from landmarks
+- Missing or low-confidence landmarks are handled explicitly
+
+### Milestone 3: Retargeting
+
+- Source skeleton motion is mapped onto a Mixamo rig
+- Avatar roughly follows user motion
+- Target skeleton bone lengths remain fixed
+
+### Milestone 4: Stabilization
+
+- Temporal smoothing reduces jitter
+- Joint limits and simple IK improve plausibility
+- Basic foot planting reduces visible sliding
+
+### Milestone 5: Demo
+
+- End-to-end real-time demo works
+- Example success cases and failure cases are recorded
+- Limitations and next steps are documented
+
+## Repository Direction
+
+Keep the project modular without over-engineering. A likely structure is:
 
 ```text
-pose-retarget-demo/
-├── README.md
-├── requirements.txt
-├── .gitignore
+monocular-pose-retargeting/
 ├── app.py
+├── requirements.txt
 ├── models/
-│   └── .gitkeep
 ├── src/
-│   ├── __init__.py
-│   ├── config.py
-│   ├── pipeline/
-│   │   ├── __init__.py
-│   │   ├── pose_detector.py
-│   │   ├── smoothing.py
-│   │   ├── retargeter.py
-│   │   └── types.py
-│   ├── rendering/
-│   │   ├── __init__.py
-│   │   ├── draw_pose.py
-│   │   └── draw_debug.py
-│   └── utils/
-│       ├── __init__.py
-│       ├── image.py
-│       └── timing.py
+│   ├── pose_detection.py
+│   ├── source_skeleton.py
+│   ├── retargeting.py
+│   ├── smoothing.py
+│   └── types.py
 ├── tests/
-│   ├── test_draw_pose.py
-│   └── test_types.py
 └── scripts/
-    └── download_models.py
 ```
 
-## File responsibilities
+Near-term code can remain simpler than this. Add modules only when the responsibility is clear.
 
-### `app.py`
+## Quality Requirements
 
-* Gradio entrypoint
-* create the UI with:
+- Keep modules small and readable
+- Use type hints for public functions
+- Avoid putting all logic in `app.py`
+- Prefer clear interfaces over premature abstractions
+- Keep changes incremental and reviewable
+- Keep pose-specific configuration close to the pose code it affects
 
-  * webcam input
-  * annotated image output
-  * checkboxes for keypoints and limbs
-  * optional sliders for confidence thresholds
-* wire the stream callback to the backend frame processor
+## Deliverables
 
-### `src/pipeline/pose_detector.py`
+- Working code for the full retargeting pipeline
+- One real-time avatar demo using a Mixamo character
+- Visualization and debugging tools
+- Short write-up describing:
+  - approach
+  - design choices
+  - limitations
+  - future improvements
 
-* load MediaPipe Pose Landmarker once
-* expose a detector class or function
-* input: RGB image/frame
-* output: landmarks, world landmarks, confidence, timing info
+## Possible Extensions
 
-### `src/rendering/draw_pose.py`
-
-* draw landmarks and limb connections on a frame
-* keep drawing logic separate from detection logic
-
-### `src/pipeline/smoothing.py`
-
-* placeholder module for future temporal smoothing
-* for now, include interface only or a simple passthrough
-
-### `src/pipeline/retargeter.py`
-
-* placeholder module for future retargeting
-* for now, define a clean interface and stub implementation
-
-### `src/pipeline/types.py`
-
-* define structured dataclasses or typed dicts for:
-
-  * pose result
-  * frame timing
-  * app settings
-
-### `src/config.py`
-
-* centralize config such as:
-
-  * model path
-  * default detection thresholds
-  * drawing colors/thickness
-  * stream timing defaults
-
-### `scripts/download_models.py`
-
-* helper to download or place the MediaPipe model file into `models/`
-
-## Implementation expectations
-
-### Phase 1
-
-Create a minimal but clean working app:
-
-* Gradio webcam/image streaming
-* backend frame processing function
-* MediaPipe pose inference
-* landmark drawing
-* annotated output frame
-
-### Phase 2 scaffolding
-
-Even if not implemented yet, create stubs/interfaces for:
-
-* smoothing
-* retargeting
-* avatar output state
-
-## README requirements
-
-The README should include:
-
-* project title
-* short description
-* current milestone
-* setup instructions
-* run instructions
-* repo layout summary
-* next planned milestones
-
-## Run experience
-
-The repo should support:
-
-```bash
-pip install -r requirements.txt
-python app.py
-```
-
-## Quality requirements
-
-* keep modules small and readable
-* use type hints
-* avoid putting all logic in `app.py`
-* do not over-engineer
-* prefer clear interfaces over premature abstractions
-
-## Important design constraint
-
-The app is **Python-first and server-driven**.
-Do not build a custom frontend.
-Gradio should be the main UI shell.
-
-## Future compatibility
-
-Structure the code so it is easy later to:
-
-* swap basic Gradio streaming for FastRTC/WebRTC,
-* add temporal smoothing,
-* add retargeting,
-* optionally expose pose/retargeting results to a separate Viser viewer.
-
-## Nice-to-have
-
-* a sample “mock mode” that runs on a static image if webcam is unavailable
-* lightweight timing/debug overlay on the output frame
-* simple unit tests for drawing/type utilities
-
-You can also give the agent this one-sentence directive:
-
-**“Initialize a clean Python repository for a Gradio webcam pose-tracking app using MediaPipe and OpenCV, with modular separation between UI, pose detection, drawing, smoothing, and future retargeting.”**
-
-If you want, I can turn this into a more agent-friendly `TASKS.md` file with explicit step-by-step acceptance criteria.
+- Better 3D pose lifting
+- Contact-aware constraints
+- Hand tracking
+- Improved temporal filtering
+- Learned motion refinement after baseline retargeting works
