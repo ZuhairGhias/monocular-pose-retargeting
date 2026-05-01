@@ -55,4 +55,7 @@ if __name__ == "__main__":
     app.mount("/static", StaticFiles(directory="static"), name="static")
     app.mount("/rigs", StaticFiles(directory="rigs"), name="rigs")
     gr.mount_gradio_app(app, build_app(), path="/")
-    result = uvicorn.run(app, log_level="warning")
+
+    port = 8000
+    print(f"Starting on http://localhost:{port}...")
+    uvicorn.run(app, port=port, log_level="warning")
