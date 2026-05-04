@@ -9,6 +9,7 @@ from src.fbx import FBXViewer
 from src.debug_visualization import draw_source_skeleton_vectors
 from src.pose_detection import process_frame
 from src.retargeting import DirectSourceDirectionRetargeter
+from src.retargeting import OptimizedTemporalDirectionRetargeter
 from src.retargeting import RetargetInput
 from src.retargeting import SmoothedSourceDirectionRetargeter
 from src.ui.debug_panel import format_debug_info
@@ -18,6 +19,7 @@ DEFAULT_RETARGETER = "Smoothed source directions"
 RETARGETERS = {
     "Direct source directions": DirectSourceDirectionRetargeter(),
     "Smoothed source directions": SmoothedSourceDirectionRetargeter(),
+    "Optimized temporal directions": OptimizedTemporalDirectionRetargeter(),
 }
 
 

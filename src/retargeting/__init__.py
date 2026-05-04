@@ -1,6 +1,9 @@
 from src.retargeting.retarget_direct_source_directions import (
     DirectSourceDirectionRetargeter,
 )
+from src.retargeting.retarget_optimized_temporal_directions import (
+    OptimizedTemporalDirectionRetargeter,
+)
 from src.retargeting.retarget_smoothed_source_directions import (
     SmoothedSourceDirectionRetargeter,
 )
@@ -14,6 +17,7 @@ from src.retargeting.types import TargetBoneDirection
 __all__ = [
     "BoneMap",
     "DirectSourceDirectionRetargeter",
+    "OptimizedTemporalDirectionRetargeter",
     "RetargetFrame",
     "RetargetInput",
     "Retargeter",

@@ -86,7 +86,7 @@ Gradio remains the main UI shell. Do not build a custom frontend unless the proj
 - Webcam pose detection and landmark visualization are working.
 - A canonical source skeleton is produced with source joints, confidences, and bone directions.
 - The Mixamo FBX model renders in the Gradio app.
-- A first `src/retargeting/` scaffold exists with shared types, a Mixamo body mapping, `retarget_direct_source_directions`, and `retarget_smoothed_source_directions`.
+- A first `src/retargeting/` scaffold exists with shared types, a Mixamo body mapping, `retarget_direct_source_directions`, `retarget_smoothed_source_directions`, and `retarget_optimized_temporal_directions`.
 - The FBX viewer receives a JSON-safe retargeting payload and applies a naive FK direction match to mapped body bones.
 - Retargeting payloads include a root orientation frame estimated from the source hip axis and pelvis-to-spine direction.
 - The model debug panel shows mapped target bones, source directions, model directions, confidence, weights, and application skips.
@@ -104,7 +104,7 @@ Next steps:
 - Move source-to-model coordinate conversion into an explicit retargeting adapter so naive and refined methods can differ.
 - Improve pelvis/root orientation so hip yaw/turning is calibrated against the target rig rest pose and camera/model alignment.
 - Add rest-pose calibration from actual target rig bind/rest directions instead of relying on fallback local axes.
-- Continue refining the smoothed retargeting method with rest-pose calibration, joint limits, and later IK.
+- Continue refining the smoothed and optimized retargeting methods with rest-pose calibration, joint limits, and later IK.
 - Explore an optimization-based refinement pass that minimizes tracking error, joint-limit violations, temporal jitter, contact errors, and simple proxy-shape interpenetration.
 - Add focused tests for mapping coverage and JSON payload shape before expanding the retargeting contract.
 
