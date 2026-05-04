@@ -1,3 +1,5 @@
+import json
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 import gradio as gr
@@ -6,21 +8,63 @@ import uvicorn
 from src.fbx import FBXViewer
 from src.debug_visualization import draw_source_skeleton_vectors
 from src.pose_detection import process_frame
+from src.retargeting import NaiveDirectionRetargeter
+from src.retargeting import RetargetInput
 from src.ui.debug_panel import format_debug_info
 
 STREAM_EVERY_SECONDS = 0.2
+RETARGETER = NaiveDirectionRetargeter()
 
 
-def passthrough(frame: np.ndarray) -> tuple[np.ndarray, np.ndarray, str]:
+def format_fbx_payload(result) -> str:
+    skeleton = result.source_skeleton
+    retarget_frame = RETARGETER.retarget(RetargetInput(source_skeleton=skeleton))
+    return json.dumps(
+        {
+            "joints": {
+                joint.value: position.tolist()
+                for joint, position in skeleton.joints.items()
+            },
+            "joint_confidences": {
+                joint.value: confidence
+                for joint, confidence in skeleton.joint_confidences.items()
+            },
+            "bone_directions": {
+                f"{bone.parent.value}->{bone.child.value}": direction.tolist()
+                for bone, direction in skeleton.bone_directions.items()
+            },
+            "retargeting": retarget_frame.to_payload(),
+        }
+    )
+
+
+def passthrough(frame: np.ndarray) -> tuple[np.ndarray, np.ndarray, str, str]:
     """Accept an RGB image as a NumPy array with shape (H, W, 3) and return the same shape."""
     result = process_frame(frame)
     source_skeleton_frame = draw_source_skeleton_vectors(
         result.processed_frame,
         result.source_skeleton,
     )
-    # TODO: figure out fbx passthrough
-    fbx_passthrough_value = result
-    return result.annotated_frame, source_skeleton_frame, format_debug_info(result), fbx_passthrough_value
+    try:
+        fbx_passthrough_value = format_fbx_payload(result)
+        fbx_debug = f"fbx payload bytes: {len(fbx_passthrough_value)}"
+    except Exception as exc:
+        fbx_passthrough_value = "{}"
+        fbx_debug = f"fbx payload error: {exc}"
+
+    debug_info = "\n".join(
+        [
+            format_debug_info(result),
+            fbx_debug,
+            f"retargeter: {RETARGETER.name}",
+        ]
+    )
+    return (
+        result.annotated_frame,
+        source_skeleton_frame,
+        debug_info,
+        fbx_passthrough_value,
+    )
 
 
 def build_app() -> gr.Blocks:
@@ -33,8 +77,12 @@ def build_app() -> gr.Blocks:
             with gr.Column():
                 with gr.Tab("Landmarks"):
                     with gr.Row(equal_height=True):
-                        pose_landmarks_img = gr.Image(label="Pose Landmarks", height=320)
-                        source_skeleton_img = gr.Image(label="Source Skeleton Vectors", height=320)
+                        pose_landmarks_img = gr.Image(
+                            label="Pose Landmarks", height=320
+                        )
+                        source_skeleton_img = gr.Image(
+                            label="Source Skeleton Vectors", height=320
+                        )
                     debug_text = gr.Textbox(label="Debug", lines=8)
                 with gr.Tab("Model"):
                     output_fbx = FBXViewer(label="Output Model")
@@ -49,6 +97,7 @@ def build_app() -> gr.Blocks:
         )
 
     return demo
+
 
 if __name__ == "__main__":
     app = FastAPI()
