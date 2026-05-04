@@ -3,7 +3,15 @@
 	const THREE = await import("/static/three.js")
 	const {FBXLoader, OrbitControls} = THREE
 	const MIN_CONFIDENCE = 0.2
-	const SOURCE_DEPTH_SCALE = 0.25
+	// MediaPipe source directions are camera-relative. Keep the camera-to-model
+	// handedness and depth scaling in one mapping so retargeting code does not
+	// contain unexplained per-bone sign flips.
+	const SOURCE_TO_MODEL_AXES = {
+		x: {sourceIndex: 0, scale: 1},
+		y: {sourceIndex: 1, scale: -1},
+		z: {sourceIndex: 2, scale: -0.25},
+	}
+	const ROOT_NEUTRAL_RIGHT = new THREE.Vector3(-1, 0, 0)
 	const TARGET_LOCAL_AXES = {
 		mixamorigSpine: [0, 1, 0],
 		mixamorigSpine1: [0, 1, 0],
@@ -102,13 +110,28 @@
 	let childBoneMap = {}
 	let latestPayload = {}
 	let restQuaternions = {}
-	let latestApplyStats = {applied: 0, skipped: []}
+	let latestApplyStats = {applied: 0, skipped: [], rootYaw: null}
+
+	const sourceComponent = (direction, axis) => {
+		const mapping = SOURCE_TO_MODEL_AXES[axis]
+		return direction[mapping.sourceIndex] * mapping.scale
+	}
 
 	const sourceDirectionToModel = (direction) => {
 		if (!direction || direction.length < 3) return null
-		const vector = new THREE.Vector3(direction[0], -direction[1], -direction[2] * SOURCE_DEPTH_SCALE)
+		const vector = new THREE.Vector3(
+			sourceComponent(direction, "x"),
+			sourceComponent(direction, "y"),
+			sourceComponent(direction, "z"),
+		)
 		if (vector.lengthSq() < 1e-8) return null
 		return vector.normalize()
+	}
+
+	const signedYawBetween = (from, to) => {
+		const cross = new THREE.Vector3().crossVectors(from, to)
+		const dot = Math.max(-1, Math.min(1, from.dot(to)))
+		return Math.atan2(cross.y, dot)
 	}
 
 	const targetLocalAxis = (targetBone) => {
@@ -128,6 +151,34 @@
 			if (bone && restQuaternion) bone.quaternion.copy(restQuaternion)
 		}
 		object.updateMatrixWorld(true)
+	}
+
+	const applyRootOrientation = () => {
+		const hips = boneMap["mixamorigHips"]
+		const restQuaternion = restQuaternions["mixamorigHips"]
+		const rootOrientation = latestPayload.retargeting?.root_orientation
+		if (!hips || !restQuaternion) return null
+
+		hips.quaternion.copy(restQuaternion)
+		if (!rootOrientation) {
+			return null
+		}
+
+		const desiredRight = sourceDirectionToModel(rootOrientation.right)
+		if (!desiredRight) return null
+
+		desiredRight.y = 0
+		if (desiredRight.lengthSq() < 1e-8) return null
+		desiredRight.normalize()
+
+		const yaw = signedYawBetween(ROOT_NEUTRAL_RIGHT, desiredRight)
+		const yawQuaternion = new THREE.Quaternion().setFromAxisAngle(
+			new THREE.Vector3(0, 1, 0),
+			yaw,
+		)
+		hips.quaternion.copy(yawQuaternion.multiply(restQuaternion))
+		object.updateMatrixWorld(true)
+		return yaw
 	}
 
 	const applyDirectionInstruction = (targetBone, instruction) => {
@@ -159,6 +210,7 @@
 	const applyRetargeting = () => {
 		const retargetedBones = latestPayload.retargeting?.bones || {}
 		resetMappedBones(retargetedBones)
+		const rootYaw = applyRootOrientation()
 
 		const skipped = []
 		let applied = 0
@@ -171,7 +223,7 @@
 			}
 			object.updateMatrixWorld(true)
 		}
-		latestApplyStats = {applied, skipped}
+		latestApplyStats = {applied, skipped, rootYaw}
 	}
 
 	const updateBoneDebug = () => {
@@ -192,7 +244,9 @@
 				`retarget skipped: ${(retargeting.skipped || []).length}`,
 				`applied bones: ${latestApplyStats.applied}`,
 				`apply skipped: ${latestApplyStats.skipped.length}`,
-				`source depth scale: ${SOURCE_DEPTH_SCALE}`,
+				`root yaw: ${latestApplyStats.rootYaw === null ? "none" : latestApplyStats.rootYaw.toFixed(3)}`,
+				`root confidence: ${Number(retargeting.root_orientation?.confidence || 0).toFixed(3)}`,
+				`source axes: x=${SOURCE_TO_MODEL_AXES.x.scale}*source[${SOURCE_TO_MODEL_AXES.x.sourceIndex}], y=${SOURCE_TO_MODEL_AXES.y.scale}*source[${SOURCE_TO_MODEL_AXES.y.sourceIndex}], z=${SOURCE_TO_MODEL_AXES.z.scale}*source[${SOURCE_TO_MODEL_AXES.z.sourceIndex}]`,
 			].join("\n")
 		const retargetedBones = retargeting.bones || {}
 		const boneLines = Object.entries(retargetedBones).map(([targetBone, instruction]) => {

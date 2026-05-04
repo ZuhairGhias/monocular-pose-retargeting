@@ -8,17 +8,28 @@ import uvicorn
 from src.fbx import FBXViewer
 from src.debug_visualization import draw_source_skeleton_vectors
 from src.pose_detection import process_frame
-from src.retargeting import NaiveDirectionRetargeter
+from src.retargeting import DirectSourceDirectionRetargeter
 from src.retargeting import RetargetInput
+from src.retargeting import SmoothedSourceDirectionRetargeter
 from src.ui.debug_panel import format_debug_info
 
 STREAM_EVERY_SECONDS = 0.2
-RETARGETER = NaiveDirectionRetargeter()
+DEFAULT_RETARGETER = "Smoothed source directions"
+RETARGETERS = {
+    "Direct source directions": DirectSourceDirectionRetargeter(),
+    "Smoothed source directions": SmoothedSourceDirectionRetargeter(),
+}
 
 
-def format_fbx_payload(result) -> str:
+def selected_retargeter(name: str):
+    return RETARGETERS.get(name, RETARGETERS[DEFAULT_RETARGETER])
+
+
+def format_fbx_payload(result, retargeter_name: str) -> str:
     skeleton = result.source_skeleton
-    retarget_frame = RETARGETER.retarget(RetargetInput(source_skeleton=skeleton))
+    retarget_frame = selected_retargeter(retargeter_name).retarget(
+        RetargetInput(source_skeleton=skeleton)
+    )
     return json.dumps(
         {
             "joints": {
@@ -38,15 +49,18 @@ def format_fbx_payload(result) -> str:
     )
 
 
-def passthrough(frame: np.ndarray) -> tuple[np.ndarray, np.ndarray, str, str]:
+def passthrough(
+    frame: np.ndarray, retargeter_name: str
+) -> tuple[np.ndarray, np.ndarray, str, str]:
     """Accept an RGB image as a NumPy array with shape (H, W, 3) and return the same shape."""
     result = process_frame(frame)
     source_skeleton_frame = draw_source_skeleton_vectors(
         result.processed_frame,
         result.source_skeleton,
     )
+    retargeter = selected_retargeter(retargeter_name)
     try:
-        fbx_passthrough_value = format_fbx_payload(result)
+        fbx_passthrough_value = format_fbx_payload(result, retargeter_name)
         fbx_debug = f"fbx payload bytes: {len(fbx_passthrough_value)}"
     except Exception as exc:
         fbx_passthrough_value = "{}"
@@ -56,7 +70,7 @@ def passthrough(frame: np.ndarray) -> tuple[np.ndarray, np.ndarray, str, str]:
         [
             format_debug_info(result),
             fbx_debug,
-            f"retargeter: {RETARGETER.name}",
+            f"retargeter: {retargeter.name}",
         ]
     )
     return (
@@ -85,11 +99,16 @@ def build_app() -> gr.Blocks:
                         )
                     debug_text = gr.Textbox(label="Debug", lines=8)
                 with gr.Tab("Model"):
+                    retargeter_dropdown = gr.Dropdown(
+                        choices=list(RETARGETERS.keys()),
+                        value=DEFAULT_RETARGETER,
+                        label="Retargeter",
+                    )
                     output_fbx = FBXViewer(label="Output Model")
 
         input_img.stream(
             passthrough,
-            inputs=input_img,
+            inputs=[input_img, retargeter_dropdown],
             outputs=[pose_landmarks_img, source_skeleton_img, debug_text, output_fbx],
             time_limit=15,
             stream_every=STREAM_EVERY_SECONDS,

@@ -42,12 +42,15 @@ SOURCE_BONES = (
     SourceBone(SourceJoint.PELVIS, SourceJoint.SPINE),
     SourceBone(SourceJoint.SPINE, SourceJoint.NECK),
     SourceBone(SourceJoint.NECK, SourceJoint.HEAD),
+    SourceBone(SourceJoint.LEFT_SHOULDER, SourceJoint.RIGHT_SHOULDER),
+    SourceBone(SourceJoint.RIGHT_SHOULDER, SourceJoint.LEFT_SHOULDER),
     SourceBone(SourceJoint.NECK, SourceJoint.LEFT_SHOULDER),
     SourceBone(SourceJoint.LEFT_SHOULDER, SourceJoint.LEFT_ELBOW),
     SourceBone(SourceJoint.LEFT_ELBOW, SourceJoint.LEFT_WRIST),
     SourceBone(SourceJoint.NECK, SourceJoint.RIGHT_SHOULDER),
     SourceBone(SourceJoint.RIGHT_SHOULDER, SourceJoint.RIGHT_ELBOW),
     SourceBone(SourceJoint.RIGHT_ELBOW, SourceJoint.RIGHT_WRIST),
+    SourceBone(SourceJoint.LEFT_HIP, SourceJoint.RIGHT_HIP),
     SourceBone(SourceJoint.PELVIS, SourceJoint.LEFT_HIP),
     SourceBone(SourceJoint.LEFT_HIP, SourceJoint.LEFT_KNEE),
     SourceBone(SourceJoint.LEFT_KNEE, SourceJoint.LEFT_ANKLE),
@@ -79,7 +82,9 @@ def normalize(vector: np.ndarray) -> np.ndarray | None:
     return vector / length
 
 
-def estimate_source_joints(pose_result: PoseLandmarkerResult) -> dict[SourceJoint, np.ndarray]:
+def estimate_source_joints(
+    pose_result: PoseLandmarkerResult,
+) -> dict[SourceJoint, np.ndarray]:
     if not pose_result.pose_landmarks:
         return {}
 
@@ -114,7 +119,9 @@ def estimate_source_joints(pose_result: PoseLandmarkerResult) -> dict[SourceJoin
     }
 
 
-def estimate_bone_directions(joints: dict[SourceJoint, np.ndarray]) -> dict[SourceBone, np.ndarray]:
+def estimate_bone_directions(
+    joints: dict[SourceJoint, np.ndarray],
+) -> dict[SourceBone, np.ndarray]:
     directions = {}
 
     for bone in SOURCE_BONES:
@@ -130,7 +137,9 @@ def estimate_bone_directions(joints: dict[SourceJoint, np.ndarray]) -> dict[Sour
     return directions
 
 
-def estimate_joint_confidences(pose_result: PoseLandmarkerResult) -> dict[SourceJoint, float]:
+def estimate_joint_confidences(
+    pose_result: PoseLandmarkerResult,
+) -> dict[SourceJoint, float]:
     if not pose_result.pose_landmarks:
         return {}
 

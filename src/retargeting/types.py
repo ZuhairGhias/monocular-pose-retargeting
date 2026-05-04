@@ -38,10 +38,27 @@ class TargetBoneDirection:
 
 
 @dataclass(frozen=True)
+class RootOrientation:
+    right: Vector3
+    up: Vector3
+    forward: Vector3
+    confidence: float
+
+    def to_payload(self) -> dict:
+        return {
+            "right": list(self.right),
+            "up": list(self.up),
+            "forward": list(self.forward),
+            "confidence": self.confidence,
+        }
+
+
+@dataclass(frozen=True)
 class RetargetFrame:
     method: str
     bones: dict[str, TargetBoneDirection]
     skipped: tuple[str, ...]
+    root_orientation: RootOrientation | None = None
 
     def to_payload(self) -> dict:
         return {
@@ -51,6 +68,11 @@ class RetargetFrame:
                 for bone_name, direction in self.bones.items()
             },
             "skipped": list(self.skipped),
+            "root_orientation": (
+                self.root_orientation.to_payload()
+                if self.root_orientation is not None
+                else None
+            ),
         }
 
 

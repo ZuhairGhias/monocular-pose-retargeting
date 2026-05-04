@@ -1,4 +1,5 @@
 from src.retargeting.rig_mapping import MIXAMO_BODY_MAPPING
+from src.retargeting.root_orientation import estimate_root_orientation
 from src.retargeting.types import RetargetFrame
 from src.retargeting.types import RetargetInput
 from src.retargeting.types import TargetBoneDirection
@@ -9,8 +10,8 @@ def to_vector3(values) -> Vector3:
     return (float(values[0]), float(values[1]), float(values[2]))
 
 
-class NaiveDirectionRetargeter:
-    name = "naive_direction"
+class DirectSourceDirectionRetargeter:
+    name = "retarget_direct_source_directions"
 
     def retarget(self, frame: RetargetInput) -> RetargetFrame:
         # This baseline does not solve rotations in Python. It forwards source
@@ -53,4 +54,5 @@ class NaiveDirectionRetargeter:
             method=self.name,
             bones=target_bones,
             skipped=tuple(skipped),
+            root_orientation=estimate_root_orientation(source_skeleton),
         )
