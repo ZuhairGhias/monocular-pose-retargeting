@@ -115,6 +115,7 @@ def build_app() -> gr.Blocks:
             time_limit=15,
             stream_every=STREAM_EVERY_SECONDS,
             concurrency_limit=30,
+            show_progress = "hidden"
         )
 
     return demo
