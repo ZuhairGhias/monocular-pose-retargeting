@@ -1,4 +1,5 @@
 import json
+import os
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -127,6 +128,6 @@ if __name__ == "__main__":
     app.mount("/rigs", StaticFiles(directory="rigs"), name="rigs")
     gr.mount_gradio_app(app, build_app(), path="/")
 
-    port = 8000
-    print(f"Starting on http://localhost:{port}...")
-    uvicorn.run(app, port=port, log_level="warning")
+    port = int(os.environ.get("PORT", "7860"))
+    print(f"Starting on http://0.0.0.0:{port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")

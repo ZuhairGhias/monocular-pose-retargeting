@@ -1,3 +1,9 @@
+---
+title: Monocular Pose Retargeting
+sdk: docker
+app_port: 7860
+---
+
 # monocular-pose-retargeting
 Pose detection and retargeting.
 
